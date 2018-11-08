@@ -40,8 +40,7 @@ multTable = [
 			['0', 'F', 'D', '2', '9', '6', '4', 'B', '1', 'E', 'C', '3', '8', '7', '5', 'A']
 ]
 
-
-#----------------------------Funções de conversão------------------------------
+#--------------------------- Funções de conversão -----------------------------
 
 def stringToHex(par): # Converte um par de simbolos para Hexadecimal
 	new = ''	
@@ -55,6 +54,12 @@ def hexToBinary(hex): # Converte Hexadecimal para binário
     binary = binary[2:]
     return '{:0>4}'.format(binary) # Sempre retorna 4 digitos
 
+def binToHex(b):
+	result = hex(int(b, 2))
+	return result[2:]
+
+def decToBin(d):
+	return '{:0>4}' .format(str(bin(d))[2:])
 
 #--------------------------- Operações -----------------------------
 
@@ -62,6 +67,10 @@ def xorGeral(a, b): # Faz o xor entre dois valores hexadecimais
 	result = int(a, 16) ^ int(b, 16) # Converte para inteiro e faz o xor entre eles
 	return '{:0>4x}'.format(result)  # Converte de vola para hexadecimal, sempre com 4 digitos
 
+def xorBinary(a, b):
+	result = int(a,2) ^ int(b,2)
+	result = bin(result)
+	return '{:0>4}'.format(result[2:])
 
 def concatenaMatriz(mat): # Concatena a matriz em uma string
 	concatena = ''
@@ -74,10 +83,30 @@ def geraMatriz(simbols): # Recebe dois simbolos e gera a matriz Estado
 	mat = [['', ''], ['', '']]
 	msghex = stringToHex(simbols)
 	mat[0][0] = msghex[0]
-	mat[0][1] = msghex[1]
+	mat[0][1] = msghex[1] #Alterei o formato aqui, rever isso depois
 	mat[1][0] = msghex[2]
 	mat[1][1] = msghex[3]
 	return mat
+
+def montaMatriz(simbols): 
+	mat = [['', ''], ['', '']]
+	mat[0][0] = simbols[0]
+	mat[0][1] = simbols[1] 
+	mat[1][0] = simbols[2]
+	mat[1][1] = simbols[3]
+	return mat
+
+def separa(lista):
+	processada = list()
+	tmp = list()
+	if len(lista) % 2:
+		lista += '0'
+	for i in range(0,len(lista),2):
+		tmp.append(lista[i])
+		tmp.append(lista[i+1])
+		processada.append(tmp[:])
+		tmp.clear()
+	return processada
 
 #------------------------ Funções auxiliares ----------------------
 def rotWord(w):
@@ -89,27 +118,28 @@ def search(table, l, c):
 	return table[l][c]
 
 def sub(par):
-	new_par = ''
-	for j in range(2): 
-		elemento = par[j] # Guarda o elemento
-		elemento = hexToBinary(elemento) # Converte para hexa decimal
-		l = elemento[:2] # Pega os dois primeiros digitos que serão a linha
-		c = elemento[2:] # Pega os dois ultimos digitos que serão a coluna
-		l = int(l, 2) # Converte para binário
-		c = int(c, 2)
-		new_par += sbox[l][c]
-	return new_par
-
-
+	l = par[:2] # Pega os dois primeiros digitos que serão a linha
+	c = par[2:] # Pega os dois ultimos digitos que serão a coluna
+	l = int(l, 2) # Converte para decimal
+	c = int(c, 2)
+	return hexToBinary(sbox[l][c])
 
 #------------------------ Métodos ----------------------
 
-def embaralharColunas(mat):
+def mixColumns(mat):
 	new_mat = [['', ''], ['', '']]
 	new_mat[0][0] = search(addTable, mat[0][0], search(multTable, '4', mat[1][0]))
 	new_mat[0][1] = search(addTable, search(multTable, '4', mat[0][0]), mat[1][0])
 	new_mat[1][0] = search(addTable, mat[0][1], search(multTable, '4', mat[1][1]))
 	new_mat[1][1] = search(addTable, search(multTable, '4', mat[0][1]), mat[1][1])
+	return new_mat
+
+def mixColumnsInverse(mat):
+	new_mat = [['', ''], ['', '']]
+	new_mat[0][0] = search(addTable, search(multTable, '2', mat[0][0]), search(multTable, '9', mat[1][0]))
+	new_mat[0][1] = search(addTable, search(multTable, '9', mat[0][0]), search(multTable, '2', mat[1][0]))
+	new_mat[1][0] = search(addTable, search(multTable, '2', mat[0][1]), search(multTable, '9', mat[1][1]))
+	new_mat[1][1] = search(addTable, search(multTable, '9', mat[0][1]), search(multTable, '2', mat[1][1]))
 	return new_mat
 
 def incluirChave(mat, chave): 
@@ -123,7 +153,7 @@ def incluirChave(mat, chave):
 			ind += 1
 	return mat
 
-def subNibble(mat): # Faz a substituição dos Nibbles
+def subBytes(mat, box): # Faz a substituição dos Nibbles
 	for i in range(2): # Percorre a matriz inteira analisando cada simbolo
 		for j in range(2): 
 			elemento = mat[i][j] # Guarda o elemento
@@ -132,73 +162,145 @@ def subNibble(mat): # Faz a substituição dos Nibbles
 			c = elemento[2:] # Pega os dois ultimos digitos que serão a coluna
 			l = int(l, 2) # Converte para binário
 			c = int(c, 2)
-			mat[i][j] = sbox[l][c] # Busca na sbox e atualiza o elemento
+			mat[i][j] = box[l][c] # Busca na sbox e atualiza o elemento
 	return mat
 
-def deslocarLinhas(mat):
+def shiftRows(mat):
 	mat[1][0], mat[1][1] = mat[1][1], mat[1][0] # Apenas troca os elementos da segunda linha
 	return mat
 
-
-#chave = [['2', '5'], ['D', '5']]
-
-
-
-
-def keySchedule(key):
+def keySchedule(key, rcon):
 	ws = list()
 	tmp = list()
+	new_key = ''
 	for i in key: #Pega a chave em hexadecimal e coloca tudo em binario pra formar a matriz 4x4
 		for j in i:
 			tmp.append(hexToBinary(j))
 			ws.append(tmp[:])
 			tmp.clear()
+	rot = rotWord(''.join(ws[3]))
+	#print('rot: ',rot)
+	par = sub(rot)
+	#print('par: ',par)  
+	first_xor = xorBinary(''.join(ws[0]), par)
+	#print('first_xor: ',first_xor)
+	second_xor = xorBinary(first_xor, rcon)
+	#print('second_xor: ',second_xor)
+	tmp.append(second_xor)
+	ws.append(tmp[:])
+	tmp.clear()
+	for i in range(1, 4):
+		tmp.append(xorBinary(''.join(ws[i]), ''.join(ws[i+3])))
+		ws.append(tmp[:])
+		tmp.clear()	
+	for i in ws[4:]:
+		for j in i:
+			new_key += binToHex(j)
+	print(new_key)
+	return new_key
+
+def generateKeys(chave, round):
+	lista_chaves = list()
+	for i in range(1, round+1)
+		chave = keySchedule(chave, decToBin(2**i))
+		chave = montaMatriz(chave)
+
+def addRoundKey(mat, chave, rcon):
+	new_mat = [['', ''], ['', '']]
 	
-	for i in range(4):
-		pass
+	new_key = keySchedule(chave, rcon)
+	new_mat = xorGeral(concatenaMatriz(mat), new_key)
+	
+	mat[0][0] = new_mat[0]
+	mat[0][1] = new_mat[1] 
+	mat[1][0] = new_mat[2]
+	mat[1][1] = new_mat[3]
+	return mat
 
+def findKeyRound(key, round):
+	for i in range(1, round+1)
+		key = keySchedule(key,decToBin(2**i))
+	return key
 
+#---------------------- Métodos principais --------------------
 
-	print(ws)
+def encrypt(text_plain, key, rounds):
+	cifrada = ''
+	text_plain = separa(text_plain)	
+	
+	for par in text_plain:
+		matrizEstado = geraMatriz(par)
+		print('matrizEstado: {}'.format(matrizEstado))
+		matrizChave = geraMatriz(key)
+		print('matrizChave: {}'.format(matrizChave))		
+		matrizEstado = incluirChave(matrizEstado, matrizChave)
+		print('Incluindo chave na matriz...')
+		print('matrizEstado: {}'.format(matrizEstado))
+		print('Começando a rodar...')
+		for i in range(1, rounds+1):
+			print('Round {}'.format(i))
+			matrizEstado = subBytes(matrizEstado, sbox)
+			print('1 - subBytes: {}'.format(matrizEstado))
+			matrizEstado = shiftRows(matrizEstado)
+			print('2 - shiftRows: {}'.format(matrizEstado))
+			matrizEstado = mixColumns(matrizEstado)
+			print('3 - mixColumns: {}'.format(matrizEstado))
+			matrizEstado = addRoundKey(matrizEstado, matrizChave,  decToBin(2**i))
+			print('4 - addRoundKey: {}'.format(matrizEstado))
+		cifrada += concatenaMatriz(matrizEstado)
 
-#matrizEstado = [['A', '4'], ['7', '9']]
-#chave = [['2', '5'], ['D', '5']]
-
-
-#---------------------- Funções principais --------------------
-
-def encrypt():
+	return cifrada
+'''
+def decrypt(cifrado, key, rounds):
+	text_plain = ''
+	inicio = 0
+	fim = 3
 	matrizEstado = list()
 	matrizChave = list()
-	'''
-	text_plain = input('Digite o texto claro: ')
-	key = input('Digite a chave de encriptação: ')
+	chaves = generateKeys(key, rounds)
 
-	text_plain = text_plain[:2] # Reduz o texto claro a apenas os dois primeiros simbolos
-	key = key[:2] # Reduz a chave a apenas os dois primeiros simbolos
+	for i in range(len(cifrado)/4):
+		parte = cifrado[inicio, fim+1]
+		inicio = fim
+		fim += 3
+		matrizEstado = montaMatriz(parte)
+		matrizChave = geraMatriz(key)
+		matrizChave = findKeyRound(matrizChave, rounds)
+		matrizEstado = incluirChave(matrizEstado, matrizChave)
+		for j in range(rounds):
+			matrizEstado = mixColumnsInverse(matrizEstado)
+			matrizEstado = shiftRows(matrizEstado)
+			matrizEstado = subBytes(matrizEstado, sboxInverse)
+			addRoundKey
 
-	matrizEstado = geraMatriz(text_plain)
-	matrizChave = geraMatriz(key)
-	'''
-	matrizEstado = [['A', '4'], ['7', '9']]
-	matrizChave = [['2', '5'], ['D', '5']]
-	'''
-	matrizEstado = incluirChave(matrizEstado, matrizChave)
-	
-
-
-	matrizEstado = subNibble(matrizEstado)
-	matrizEstado = deslocarLinhas(matrizEstado)
-	matrizEstado = embaralharColunas(matrizEstado)
-	
-
-
-
-	print(matrizEstado)
 '''
-	keySchedule(matrizChave)	
-	print('Antes: ', matrizChave, 'Depois: ', rotWord(matrizChave))
 
 
 
-encrypt()
+#---------------------- Função principal --------------------
+
+def main ():
+	matrizEstado = list()
+	matrizChave = list()
+	while True:
+		print('1 - S-Aes normal')
+		print('2 - S-Aes 2')
+		print('3 - S-Aes 3')
+		print('4 - Sair')
+		resp = int(input('Escolha uma opção: '))
+		if resp == 1:
+			text_plain = input('Digite o texto claro: ')
+			key = input('Digite a chave de encriptação: ')[:2]
+			rounds = int(input('Quantidade de rounds: '))
+			print('Result: {}'.format(encrypt(text_plain, key, rounds)))
+		elif resp == 2:
+			pass
+		elif resp == 3:
+			pass
+		elif resp == 4:
+			break
+		else:
+			print('Opção inválida, ', end='')
+
+
+main()
